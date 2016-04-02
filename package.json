@@ -3,6 +3,10 @@
   "version": "0.0.2",
   "dependencies": {
     "async": "latest",
-	"q": "~1.4.1"
+    "cheerio": "^0.20.0",
+    "jQuery": "^1.7.4",
+    "jquery": "^2.2.2",
+    "q": "~1.4.1",
+    "request": "^2.69.0"
   }
 }
