@@ -2,9 +2,11 @@
  * Created by amir on 03/04/16.
  */
 var jQuery = require('jquery-deferred');
-    request = require('request'),
+request = require('request'),
     cheerio = require('cheerio'),
-    Review = require('./review.js');
+    Review = require('./review.js'),
+    http = require('http');
+
 
 var Place = function (dom) {
     this.reviews = [];
@@ -48,6 +50,49 @@ Place.prototype.fetchReviews = function () {
 Place.prototype.handleReviewResponse = function (error, response, body) {
     var review = new Review(body);
     this.reviews.push(review);
+};
+
+Place.Query = function (query) {
+    var query = 'https://www.tripadvisor.com/Search?q=Bars&geo=293984&pid=3825&typeaheadRedirect=true&redirect=&startTime=undefined&uiOrigin=undefined&returnTo=__2F__';
+    var placesArr = [];
+    var done = false;
+    var oDeferred = jQuery.Deferred();
+    request(query, function (error, response, body) {
+        if (!error && response.statusCode == 200) {
+            var $ = cheerio.load(body);
+            var $places = $('.result');
+            var numRequests = $places.length;
+            var numResponses = 0;
+            var numResponsesOfReviews = 0;
+            $places.each(function (_, place) {
+                var onClickText = $(place).attr("onclick");
+                var link = onClickText.match(/.*((Restaurant|Attraction).*\.html).*/);
+                if (link.length > 1) {
+                    request('https://www.tripadvisor.com/' + link[1], function (error, response, body) {
+                        numResponses++;
+                        if (!error && response.statusCode == 200) {
+                            var place = new Place(body);
+                            place.fetchReviews().done(function (place) {
+                                numResponsesOfReviews++;
+                                placesArr.push(place);
+                                if (done && numResponsesOfReviews == numResponses)
+                                    oDeferred.resolve(placesArr);
+                            })
+                        }
+                        if (numResponses == numRequests) {
+                            done = true;
+                        }
+
+                    });
+                } else {
+                    numRequests--;
+                }
+            });
+        }
+    });
+    return oDeferred.promise();
+
+
 };
 
 module.exports = Place;
