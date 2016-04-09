@@ -53,8 +53,6 @@ crawler.crawl = function(query) {
             }).all(function() {
                 callBackCounter++;
             })
-
-
         }
 
     })

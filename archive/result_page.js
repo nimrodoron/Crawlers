@@ -1,5 +1,5 @@
 var result_page = function(body) {
-    this.body = body
+    this.dom = body
 };
 
 result_page.prototype.getAllEntriesPaths = function() {
