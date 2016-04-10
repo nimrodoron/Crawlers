@@ -6,6 +6,7 @@
 var Place = require('./place');
 var mySqlProvider = require('./mySqlProvider.js');
 var provider  = new mySqlProvider();
+var jQuery = require('jquery-deferred');
 
 var Crawler = function() {
 };
@@ -40,3 +41,7 @@ Crawler.prototype.getNumPages = function(){
     }.bind(this));
     return oDeferred.promise();
 };
+
+
+var crawler = new Crawler();
+crawler.Crawl("Bar");
