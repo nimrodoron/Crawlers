@@ -10,8 +10,10 @@ request = require('request'),
 
 var Place = function (dom) {
     this.reviews = [];
-    this.dom = dom;
-    this.init();
+    if (!!dom) {
+        this.dom = dom;
+        this.init();
+    }
 };
 
 Place.prototype.init = function () {
