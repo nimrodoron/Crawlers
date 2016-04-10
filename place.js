@@ -55,7 +55,6 @@ Place.prototype.handleReviewResponse = function (error, response, body) {
 };
 
 Place.Query = function (query) {
-    var query = 'https://www.tripadvisor.com/Search?q=Bars&geo=293984&pid=3825&typeaheadRedirect=true&redirect=&startTime=undefined&uiOrigin=undefined&returnTo=__2F__';
     var placesArr = [];
     var done = false;
     var oDeferred = jQuery.Deferred();
