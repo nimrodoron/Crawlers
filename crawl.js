@@ -2,10 +2,10 @@
  * Created by amir on 03/04/16.
  */
 
-/*
+
 var Place = require('./place');
-Place.Query();
-*/
+var mySqlProvider = require('./mySqlProvider.js');
+var provider  = new mySqlProvider();
 
 var Crawler = function() {
 };
@@ -19,7 +19,7 @@ Crawler.prototype.Crawl = function (query) {
             var pageId = i*30;
             var pageQuery = 'https://www.tripadvisor.com/Search?q='+query+'&geo=293984#&o='+pageId;
             Place.Query(pageQuery).done(function(placesArr){
-                console.log(placesArr);
+                provider.save(places);
             });
             i++;
         }

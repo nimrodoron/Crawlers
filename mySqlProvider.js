@@ -6,9 +6,11 @@ Q = require('q');
 var insertPlacesSql = "INSERT INTO t_places (name, description, country, locality, street) VALUES ?";
 var insertReviewsSql = "INSERT INTO t_reviews (place_id, title, rating, body) VALUES ?";
 
+var emojiStrip = require('emoji-strip');
+
 var mySqlProvider = function () {
     this.mysql = require("mysql");
-
+    this.lastInsertIndex = 1;
     this.conn = this.mysql.createConnection({
         host: 'localhost',
         user: 'trippy2',
@@ -31,11 +33,19 @@ mySqlProvider.prototype.save = function (places)
         if (!!places) {
             places.forEach(function (place) {
                 var val = [];
-                if (!!place.name && !!place.description && !!place.country && !!place.locality && !!place.street) {
+                if (!!place.name && !!place.country && !!place.locality && !!place.street) {
                     val.push(place.name, place.description, place.country, place.locality, place.street);
+                    if (!!place.reviews) {
+                        place.reviews.forEach(function (review) {
+                            review.placeId = this.lastInsertIndex;
+
+                        }.bind(this));
+                    }
                     values.push(val);
+                    this.lastInsertIndex++;
                 } else {
-                    console.error("Place is not valid:" + place);
+                    console.error("Place is not valid. name: " + place.name + " description: " + place.description +
+                                  " country: " + place.country + " locality: " + place.locality + " street: " + place.street);
                 }
             }, this);
         }
@@ -54,8 +64,7 @@ mySqlProvider.prototype.save = function (places)
                             place.reviews.forEach(function (review) {
                                 var val = [];
                                 if (!!review.title && !!review.rating && review.body) {
-                                    review.placeId = res.insertId - res.affectedRows + index + 1;
-                                    val.push(review.placeId, review.title, review.rating, review.body);
+                                    val.push(review.placeId, emojiStrip(review.title), review.rating, review.body);
                                     values.push(val);
 
                                 } else {

@@ -4,11 +4,12 @@
   "dependencies": {
     "async": "latest",
     "cheerio": "^0.20.0",
+    "emoji-strip": "0.0.3",
     "jQuery": "^1.7.4",
     "jquery": "^2.2.2",
+    "jquery-deferred": "~0.3.0",
+    "mysql": "*",
     "q": "~1.4.1",
-    "mysql": "*", ,
-    "request": "^2.69.0",
-    "jquery-deferred": "~0.3.0"
+    "request": "^2.69.0"
   }
 }
