@@ -18,9 +18,9 @@ Crawler.prototype.Crawl = function (query) {
         var i=0;
         while (i<numPages) {
             var pageId = i*30;
-            var pageQuery = 'https://www.tripadvisor.com/Search?q='+query+'&geo=293984#&o='+pageId;
+            var pageQuery = 'https://www.tripadvisor.com/Search?q='+query+'&ajax=search&actionType=updatePage&geo=293984#&o='+pageId;
             Place.Query(pageQuery).done(function(placesArr){
-                provider.save(places);
+                provider.save(placesArr);
             });
             i++;
         }
