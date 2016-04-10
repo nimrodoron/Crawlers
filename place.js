@@ -6,6 +6,7 @@ request = require('request'),
     cheerio = require('cheerio'),
     Review = require('./review.js'),
     http = require('http');
+    Q = require('q');
 
 
 var Place = function (dom) {
@@ -23,6 +24,7 @@ Place.prototype.init = function () {
     this.country = $($('.country-name')[0]).text();
     this.description = $($('.additional_info').find('.content')[1]).text();
     this.name = $($('.heading_name')[0]).text();
+    console.log("Places created: " + this);
 };
 
 Place.prototype.fetchReviews = function () {
@@ -61,6 +63,7 @@ Place.Query = function (query) {
     var oDeferred = jQuery.Deferred();
     request(query, function (error, response, body) {
         if (!error && response.statusCode == 200) {
+            console.log("Fetch query succeeded: " + query);
             var $ = cheerio.load(body);
             var $places = $('.result');
             var numRequests = $places.length;
@@ -70,7 +73,8 @@ Place.Query = function (query) {
                 var onClickText = $(place).attr("onclick");
                 var link = onClickText.match(/.*((Restaurant|Attraction).*\.html).*/);
                 if (link.length > 1) {
-                    request('https://www.tripadvisor.com/' + link[1], function (error, response, body) {
+                    var linkPlace = 'https://www.tripadvisor.com/' + link[1]
+                    request(linkPlace, function (error, response, body) {
                         numResponses++;
                         if (!error && response.statusCode == 200) {
                             var place = new Place(body);
@@ -80,6 +84,8 @@ Place.Query = function (query) {
                                 if (done && numResponsesOfReviews == numResponses)
                                     oDeferred.resolve(placesArr);
                             })
+                        } else {
+                            console.error("reqeust for place: " + place + "request: " + linkPlace);
                         }
                         if (numResponses == numRequests) {
                             done = true;
@@ -87,9 +93,12 @@ Place.Query = function (query) {
 
                     });
                 } else {
+                    console.error("Link on place: " + place + "failed " + link);
                     numRequests--;
                 }
             });
+        } else {
+            console.error("Fetch query failed: " + query);
         }
     });
     return oDeferred.promise();
