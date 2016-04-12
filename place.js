@@ -27,9 +27,43 @@ Place.prototype.init = function () {
     console.log("Places created: " + this);
 };
 
-Place.prototype.fetchReviews = function () {
+Place.prototype.fetchReviews = function (url) {
     var oDeferred = jQuery.Deferred();
+    var answers = 0;
     var $ = cheerio.load(this.dom);
+    var numPages = $('.pageNumber').last().text();
+    var index = url.indexOf('-Reviews-');
+    var startUrl = url.substr(0,index+8);
+    var endUrl = url.substr(index+8, url.length);
+    for (i = 0; i < numPages; i++) {
+        var link;
+        if (i > 0) {
+            link = startUrl + endUrl;
+        } else {
+            link = startUrl + "or" + i + "0" + endUrl;
+        }
+        request(link, function (error, response, body) {
+            if (!error && response.statusCode == 200) {
+                var $ = cheerio.load(body);
+                this.fetchReviewPage(body).done(function () {
+                    answers++;
+                    if (answers == numPages) {
+                        delete this.dom;
+                        oDeferred.resolve(this);
+                    }
+                }.bind(this));
+            } else {
+                delete this.dom;
+                oDeferred.reject(this);
+            }
+        }.bind(this));
+    }
+    return oDeferred.promise();
+};
+
+Place.prototype.fetchReviewPage = function (body) {
+    var oDeferred = jQuery.Deferred();
+    var $ = cheerio.load(body);
     var $quotes = $('.quote');
     var numCalls = $quotes.length;
     var numResponses = 0;
@@ -41,9 +75,10 @@ Place.prototype.fetchReviews = function () {
             numResponses++;
             if (!error && response.statusCode == 200) {
                 this.handleReviewResponse(error, response, body);
+            } else {
+                console.error(error);
             }
             if (numResponses === numCalls) {
-                delete this.dom;
                 oDeferred.resolve(this);
             }
         }.bind(this));
@@ -77,7 +112,7 @@ Place.Query = function (query) {
                         numResponses++;
                         if (!error && response.statusCode == 200) {
                             var place = new Place(body);
-                            place.fetchReviews().done(function (place) {
+                            place.fetchReviews(linkPlace).done(function (place) {
                                 numResponsesOfReviews++;
                                 placesArr.push(place);
                                 if (done && numResponsesOfReviews == numResponses)
