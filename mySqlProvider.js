@@ -18,17 +18,29 @@ var mySqlProvider = function () {
         database: 'trippy2',
         port :'3306'
     });
-
 };
+
+mySqlProvider.prototype.init = function () {
+    var oDeferred = jQuery.Deferred();
+    this.conn.connect(function(err) {
+        if (err) {
+            console.log('Error connecting to Db');
+            return;
+        } else {
+            console.log('Connection established');
+            oDeferred.resolve(this);
+        }
+    }.bind(this));
+    return oDeferred.promise();
+};
+
+mySqlProvider.prototype.destroy = function () {
+    this.conn.end();
+}
 
 mySqlProvider.prototype.save = function (places)
 {
-    this.conn.connect(function(err){
-        if(err){
-            console.log('Error connecting to Db');
-            return;
-        }
-        console.log('Connection established');
+   if (!!this.conn) {
         var values = [];
         if (!!places) {
             places.forEach(function (place) {
@@ -83,12 +95,12 @@ mySqlProvider.prototype.save = function (places)
                     } else {
                         console.log('reviews inserted successfully Last insert ID:', res.insertId);
                     }
-                    this.conn.end();
+
                 }.bind(this));
             }
         }.bind(this));
 
-    }.bind(this));
+    }
 };
 
 module.exports = mySqlProvider;
