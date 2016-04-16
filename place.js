@@ -27,37 +27,60 @@ Place.prototype.init = function () {
     console.log("Places created: " + this);
 };
 
-Place.prototype.fetchReviews = function (url) {
+Place.prototype.fetchReviews = function () {
     var oDeferred = jQuery.Deferred();
     var answers = 0;
     var $ = cheerio.load(this.dom);
-    var numPages = $('.pageNumber').last().text();
-    var index = url.indexOf('-Reviews-');
-    var startUrl = url.substr(0,index+8);
-    var endUrl = url.substr(index+8, url.length);
-    for (i = 0; i < numPages; i++) {
-        var link;
-        if (i > 0) {
-            link = startUrl + endUrl;
+    var $pagesLinks = $('.pageNumbers').children("a");
+    var links = [];
+    $pagesLinks.each(function(aPlace){
+        var link = $(aPlace).attr('href');
+        links.push(link);
+    });
+    this.fetchReviewPage(this.dom).done( function() {
+        if (links.length > 0) {
+            this.getAllPageReviews(0, links.length, links).done(function () {
+                oDeferred.resolve(this);
+            }.bind(this));
         } else {
-            link = startUrl + "or" + i + "0" + endUrl;
+            oDeferred.resolve(this);
         }
-        request(link, function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-                var $ = cheerio.load(body);
+    });
+
+    return oDeferred.promise();
+};
+
+Place.prototype.getAllPageReviews = function (currentPage, pageNumbers, $pagesLinks) {
+    var oDeferred = jQuery.Deferred();
+    if (currentPage == pageNumbers) {
+        var link = $pagesLinks[currentPage];
+        if (!!link) {
+            request("https://www.tripadvisor.com/" + link, function (error, response, body) {
                 this.fetchReviewPage(body).done(function () {
-                    answers++;
-                    if (answers == numPages) {
-                        delete this.dom;
-                        oDeferred.resolve(this);
-                    }
+                    oDeferred.resolve(this);
                 }.bind(this));
-            } else {
-                delete this.dom;
-                oDeferred.reject(this);
-            }
-        }.bind(this));
+            }.bind(this));
+        } else {
+            oDeferred.resolve(this);
+        }
+        return oDeferred.promise();
     }
+
+    var promise = this.getAllPageReviews(currentPage+1, pageNumbers, $pagesLinks);
+    promise.done(function(){
+        var link = $($pagesLinks[currentPage - 2]).attr("href");
+        if (!!link) {
+            request("https://www.tripadvisor.com/" + link, function (error, response, body) {
+                this.fetchReviewPage(body).done(function () {
+                    oDeferred.resolve(this);
+                }.bind(this));
+            }.bind(this));
+        } else {
+            oDeferred.resolve(this);
+
+        }
+    });
+
     return oDeferred.promise();
 };
 
