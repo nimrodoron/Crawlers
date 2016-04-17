@@ -19,22 +19,21 @@ var Place = function (dom) {
 
 Place.prototype.init = function () {
     var $ = cheerio.load(this.dom);
-    this.street = $($('.street-address')[0]).text();
-    this.locality = $($('.locality')[0]).text();
-    this.country = $($('.country-name')[0]).text();
-    this.description = $($('.additional_info').find('.content')[1]).text();
-    this.name = $($('.heading_name')[0]).text();
-    console.log("Places created: " + this);
+    this.street = $($('.street-address')[0]).text().replace(/(\r\n|\n|\r)/gm,"");;
+    this.locality = $($('.locality')[0]).text().replace(/(\r\n|\n|\r)/gm,"");;
+    this.country = $($('.country-name')[0]).text().replace(/(\r\n|\n|\r)/gm,"");;
+    this.description = $($('.additional_info').find('.content')[1]).text().replace(/(\r\n|\n|\r)/gm,"");;
+    this.name = $($('.heading_name')[0]).text().replace(/(\r\n|\n|\r)/gm,"");;
+    console.log("Places created: " + this.name);
 };
 
 Place.prototype.fetchReviews = function () {
     var oDeferred = jQuery.Deferred();
     var answers = 0;
     var $ = cheerio.load(this.dom);
-    var $pagesLinks = $('.pageNumbers').children("a");
     var links = [];
-    $pagesLinks.each(function(aPlace){
-        var link = $(aPlace).attr('href');
+    $('.pageNumbers').children("a").each ( function() {
+        var link = this.attribs.href;
         links.push(link);
     });
     this.fetchReviewPage(this.dom).done( function() {
@@ -45,7 +44,7 @@ Place.prototype.fetchReviews = function () {
         } else {
             oDeferred.resolve(this);
         }
-    });
+    }.bind(this));
 
     return oDeferred.promise();
 };
@@ -53,12 +52,16 @@ Place.prototype.fetchReviews = function () {
 Place.prototype.getAllPageReviews = function (currentPage, pageNumbers, $pagesLinks) {
     var oDeferred = jQuery.Deferred();
     if (currentPage == pageNumbers) {
-        var link = $pagesLinks[currentPage];
+        var link = $pagesLinks[currentPage - 1];
         if (!!link) {
             request("https://www.tripadvisor.com/" + link, function (error, response, body) {
-                this.fetchReviewPage(body).done(function () {
-                    oDeferred.resolve(this);
-                }.bind(this));
+                if (!!body) {
+                    this.fetchReviewPage(body).done(function () {
+                        oDeferred.resolve(this);
+                    }.bind(this));
+                } else {
+                    console.error("body error for link: " + link + " error: " + error);
+                }
             }.bind(this));
         } else {
             oDeferred.resolve(this);
@@ -68,18 +71,22 @@ Place.prototype.getAllPageReviews = function (currentPage, pageNumbers, $pagesLi
 
     var promise = this.getAllPageReviews(currentPage+1, pageNumbers, $pagesLinks);
     promise.done(function(){
-        var link = $($pagesLinks[currentPage - 2]).attr("href");
+        var link = $pagesLinks[currentPage - 1];
         if (!!link) {
             request("https://www.tripadvisor.com/" + link, function (error, response, body) {
-                this.fetchReviewPage(body).done(function () {
-                    oDeferred.resolve(this);
-                }.bind(this));
+                if (!!body) {
+                    this.fetchReviewPage(body).done(function () {
+                        oDeferred.resolve(this);
+                    }.bind(this));
+                } else {
+                    console.error("body error for link: " + link + " error: " + error);
+                }
             }.bind(this));
         } else {
             oDeferred.resolve(this);
 
         }
-    });
+    }.bind(this));
 
     return oDeferred.promise();
 };
@@ -110,7 +117,7 @@ Place.prototype.fetchReviewPage = function (body) {
 };
 
 Place.prototype.handleReviewResponse = function (error, response, body) {
-    var review = new Review(body);
+    var review = new Review(body, this.name);
     this.reviews.push(review);
 };
 
