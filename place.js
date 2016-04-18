@@ -32,15 +32,33 @@ Place.prototype.fetchReviews = function () {
     var answers = 0;
     var $ = cheerio.load(this.dom);
     var links = [];
-    $('.pageNumbers').children("a").each ( function() {
+    lastlink = $('.pageNumbers').children("a").last().attr("href");
+    var pattern = /.*-(or([0-9]+))-.*/i;
+    var res = pattern.exec(lastlink);
+    lastnum = parseInt(res[2]);
+    for (i= 10; i <= lastnum; i=i+10) {
+        var sub = 'or' + i;
+        var link = lastlink.replace(res[1], sub);
+        links.push(link);
+    }
+    /*
+        .each ( function() {
         var link = this.attribs.href;
         links.push(link);
     });
-    this.fetchReviewPage(this.dom).done( function() {
+*/    this.fetchReviewPage(this.dom).done( function() {
         if (links.length > 0) {
-            this.getAllPageReviews(0, links.length, links).done(function () {
-                oDeferred.resolve(this);
+            var result = Q();
+            links.forEach(function (link) {
+                result = result.then( function() {
+                    return this.getAllPageReviews(link);
+                }.bind(this)) ;
             }.bind(this));
+
+            result.then(function() {
+                oDeferred.resolve();
+            });
+
         } else {
             oDeferred.resolve(this);
         }
@@ -49,45 +67,21 @@ Place.prototype.fetchReviews = function () {
     return oDeferred.promise();
 };
 
-Place.prototype.getAllPageReviews = function (currentPage, pageNumbers, $pagesLinks) {
+Place.prototype.getAllPageReviews = function (link) {
     var oDeferred = jQuery.Deferred();
-    if (currentPage == pageNumbers) {
-        var link = $pagesLinks[currentPage - 1];
-        if (!!link) {
-            request("https://www.tripadvisor.com/" + link, function (error, response, body) {
-                if (!!body) {
-                    this.fetchReviewPage(body).done(function () {
-                        oDeferred.resolve(this);
-                    }.bind(this));
-                } else {
-                    console.error("body error for link: " + link + " error: " + error);
-                }
-            }.bind(this));
-        } else {
-            oDeferred.resolve(this);
-        }
-        return oDeferred.promise();
+    if (!!link) {
+        request("https://www.tripadvisor.com/" + link, function (error, response, body) {
+            if (!!body) {
+                this.fetchReviewPage(body).done(function () {
+                    oDeferred.resolve(this);
+                }.bind(this));
+            } else {
+                console.error("body error for link: " + link + " error: " + error);
+            }
+        }.bind(this));
+    } else {
+        oDeferred.resolve(this);
     }
-
-    var promise = this.getAllPageReviews(currentPage+1, pageNumbers, $pagesLinks);
-    promise.done(function(){
-        var link = $pagesLinks[currentPage - 1];
-        if (!!link) {
-            request("https://www.tripadvisor.com/" + link, function (error, response, body) {
-                if (!!body) {
-                    this.fetchReviewPage(body).done(function () {
-                        oDeferred.resolve(this);
-                    }.bind(this));
-                } else {
-                    console.error("body error for link: " + link + " error: " + error);
-                }
-            }.bind(this));
-        } else {
-            oDeferred.resolve(this);
-
-        }
-    }.bind(this));
-
     return oDeferred.promise();
 };
 
@@ -99,19 +93,20 @@ Place.prototype.fetchReviewPage = function (body) {
     var numResponses = 0;
     $quotes.each(function (_, entry) {
         var url2 = $(entry).find('a');
-        if (typeof(url2) !== 'undefined' && typeof($(url2).attr('href') !== 'undefined'))
+        if (!!url2 && !!(url2).attr('href')) {
             url2 = $(url2).attr('href');
-        request("https://www.tripadvisor.com/" + url2, function (error, response, body) {
-            numResponses++;
-            if (!error && response.statusCode == 200) {
-                this.handleReviewResponse(error, response, body);
-            } else {
-                console.error(error);
-            }
-            if (numResponses === numCalls) {
-                oDeferred.resolve(this);
-            }
-        }.bind(this));
+            request("https://www.tripadvisor.com/" + url2, function (error, response, body) {
+                numResponses++;
+                if (!error && response.statusCode == 200) {
+                    this.handleReviewResponse(error, response, body);
+                } else {
+                    console.error("Error: " + error + " Status code: " + response.statusCode + " url: " + url2);
+                }
+                if (numResponses === numCalls) {
+                    oDeferred.resolve(this);
+                }
+            }.bind(this));
+        }
     }.bind(this));
     return oDeferred.promise();
 };
@@ -121,53 +116,62 @@ Place.prototype.handleReviewResponse = function (error, response, body) {
     this.reviews.push(review);
 };
 
+Place.handlePlace = function($, placeLink, placesArr) {
+    var oDeferred = jQuery.Deferred();
+    var onClickText = $(placeLink).attr("onclick");
+    var link = onClickText.match(/.*((Restaurant|Attraction).*\.html).*/);
+    if (link.length > 1) {
+        var linkPlace = 'https://www.tripadvisor.com/' + link[1]
+        request(linkPlace, function (error, response, body) {
+            if (!error && response.statusCode == 200) {
+                var place = new Place(body);
+                place.fetchReviews(linkPlace).done(function (place) {
+                    placesArr.push(place);
+                    oDeferred.resolve(place);
+                })
+            } else {
+                console.error("reqeust for place: " + place + "request: " + linkPlace);
+            }
+        });
+    } else {
+        oDeferred.reject();
+        console.error("Link on place: " + place + "failed " + link);
+    }
+    return oDeferred.promise();
+};
+
 Place.Query = function (query) {
     var placesArr = [];
-    var done = false;
     var oDeferred = jQuery.Deferred();
     request(query, function (error, response, body) {
         if (!error && response.statusCode == 200) {
             console.log("Fetch query succeeded: " + query);
             var $ = cheerio.load(body);
             var $places = $('.result');
-            var numRequests = $places.length;
-            var numResponses = 0;
-            var numResponsesOfReviews = 0;
-            $places.each(function (_, place) {
-                var onClickText = $(place).attr("onclick");
-                var link = onClickText.match(/.*((Restaurant|Attraction).*\.html).*/);
-                if (link.length > 1) {
-                    var linkPlace = 'https://www.tripadvisor.com/' + link[1]
-                    request(linkPlace, function (error, response, body) {
-                        numResponses++;
-                        if (!error && response.statusCode == 200) {
-                            var place = new Place(body);
-                            place.fetchReviews(linkPlace).done(function (place) {
-                                numResponsesOfReviews++;
-                                placesArr.push(place);
-                                if (done && numResponsesOfReviews == numResponses)
-                                    oDeferred.resolve(placesArr);
-                            })
-                        } else {
-                            console.error("reqeust for place: " + place + "request: " + linkPlace);
-                        }
-                        if (numResponses == numRequests) {
-                            done = true;
-                        }
+            var result = Q();
+            $places.each(function (_, placeLink) {
+                result = result.then( function() {
+                    var oDfr = jQuery.Deferred();
+                    var place = new Place()
+                    Place.handlePlace($, placeLink, placesArr).then( function() {
+                        oDfr.resolve();
+                    }.bind(this));
+                    return oDfr.promise();
+                }.bind(this))
+            }.bind(this));
 
-                    });
-                } else {
-                    console.error("Link on place: " + place + "failed " + link);
-                    numRequests--;
-                }
+            result.then(function() {
+                oDeferred.resolve();
             });
         } else {
             console.error("Fetch query failed: " + query);
         }
-    });
+    }.bind(this));
     return oDeferred.promise();
 
 
 };
+
+
 
 module.exports = Place;
