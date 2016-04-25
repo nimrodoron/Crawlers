@@ -1,6 +1,9 @@
 /**
  * Created by amir on 03/04/16.
  */
+var mySqlProvider = require('./mySqlProvider.js');
+var provider  = new mySqlProvider();
+
 var jQuery = require('jquery-deferred');
 request = require('request'),
     cheerio = require('cheerio'),
@@ -56,8 +59,8 @@ Place.prototype.fetchReviews = function () {
             }.bind(this));
 
             result.then(function() {
-                oDeferred.resolve();
-            });
+                oDeferred.resolve(this);
+            }.bind(this));
 
         } else {
             oDeferred.resolve(this);
@@ -116,7 +119,7 @@ Place.prototype.handleReviewResponse = function (error, response, body) {
     this.reviews.push(review);
 };
 
-Place.handlePlace = function($, placeLink, placesArr) {
+Place.handlePlace = function($, placeLink) {
     var oDeferred = jQuery.Deferred();
     var onClickText = $(placeLink).attr("onclick");
     var link = onClickText.match(/.*((Restaurant|Attraction).*\.html).*/);
@@ -126,7 +129,7 @@ Place.handlePlace = function($, placeLink, placesArr) {
             if (!error && response.statusCode == 200) {
                 var place = new Place(body);
                 place.fetchReviews(linkPlace).done(function (place) {
-                    placesArr.push(place);
+                    provider.save(place);
                     oDeferred.resolve(place);
                 })
             } else {
@@ -141,7 +144,6 @@ Place.handlePlace = function($, placeLink, placesArr) {
 };
 
 Place.Query = function (query) {
-    var placesArr = [];
     var oDeferred = jQuery.Deferred();
     request(query, function (error, response, body) {
         if (!error && response.statusCode == 200) {
@@ -153,7 +155,7 @@ Place.Query = function (query) {
                 result = result.then( function() {
                     var oDfr = jQuery.Deferred();
                     var place = new Place()
-                    Place.handlePlace($, placeLink, placesArr).then( function() {
+                    Place.handlePlace($, placeLink).then( function() {
                         oDfr.resolve();
                     }.bind(this));
                     return oDfr.promise();

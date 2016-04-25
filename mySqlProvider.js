@@ -38,28 +38,19 @@ mySqlProvider.prototype.destroy = function () {
     this.conn.end();
 }
 
-mySqlProvider.prototype.save = function (places)
+mySqlProvider.prototype.save = function (place)
 {
-   if (!!this.conn) {
+    if (!!this.conn) {
         var values = [];
-        if (!!places) {
-            places.forEach(function (place) {
-                var val = [];
-                if (!!place.name && !!place.country && !!place.locality && !!place.street) {
-                    val.push(place.name, place.description, place.country, place.locality, place.street);
-                    if (!!place.reviews) {
-                        place.reviews.forEach(function (review) {
-                            review.placeId = this.lastInsertIndex;
-
-                        }.bind(this));
-                    }
-                    values.push(val);
-                    this.lastInsertIndex++;
-                } else {
-                    console.error("Place is not valid. name: " + place.name + " description: " + place.description +
-                                  " country: " + place.country + " locality: " + place.locality + " street: " + place.street);
-                }
-            }, this);
+        if (!!place) {
+            var val = [];
+            if (!!place.name && !!place.country && !!place.locality && !!place.street) {
+                val.push(place.name, place.description, place.country, place.locality, place.street);
+                values.push(val);
+            } else {
+                console.error("Place is not valid. name: " + place.name + " description: " + place.description +
+                              " country: " + place.country + " locality: " + place.locality + " street: " + place.street);
+            }
         }
         console.log('Insert places:' + values);
         this.conn.query(insertPlacesSql, [values], function(err,res){
@@ -69,24 +60,20 @@ mySqlProvider.prototype.save = function (places)
             } else {
                 console.log('places inserted successfully Last insert ID:', res.insertId);
                 values = [];
-                var index = 1;
-                if (!!places) {
-                    places.forEach(function (place) {
-                        if (!!place.reviews) {
-                            place.reviews.forEach(function (review) {
-                                var val = [];
-                                if (!!review.title && !!review.rating && review.body) {
-                                    val.push(review.placeId, emojiStrip(review.title), review.rating, review.body);
-                                    values.push(val);
+                if (!!place) {
+                    if (!!place.reviews) {
+                        place.reviews.forEach(function (review) {
+                            review.placeId = res.insertId;
+                            var val = [];
+                            if (!!review.title && !!review.rating && review.body) {
+                                val.push(review.placeId, emojiStrip(review.title), review.rating, review.body);
+                                values.push(val);
 
-                                } else {
-                                    console.error("review: " + review + " is not valid for place:" + place);
-                                }
-
-                            }.bind(this));
-                        }
-                        index++;
-                    }, this);
+                            } else {
+                                console.error("review: " + review + " is not valid for place:" + place);
+                            }
+                        }.bind(this));
+                    }
                 }
                 console.log('Insert reviews:' + values);
                 this.conn.query(insertReviewsSql, [values], function(err,res) {

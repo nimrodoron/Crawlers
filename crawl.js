@@ -4,8 +4,6 @@
 
 
 var Place = require('./place');
-var mySqlProvider = require('./mySqlProvider.js');
-var provider  = new mySqlProvider();
 var jQuery = require('jquery-deferred');
 
 var Crawler = function() {
@@ -26,7 +24,6 @@ Crawler.prototype.query = function (i, query, numPages) {
     var pageId = i*30;
     var pageQuery = 'https://www.tripadvisor.com/Search?q='+query+'&ajax=search&actionType=updatePage&geo=293984#&o='+pageId;
     Place.Query(pageQuery).done(function(placesArr){
-        provider.save(placesArr);
         this.query(++i, query, numPages)
     }.bind(this));
 };
